@@ -1,0 +1,1 @@
+# Coast_Redwood_Fog_Detection
