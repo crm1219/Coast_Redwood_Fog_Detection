@@ -1,1 +1,1 @@
-# Coast_Redwood_Fog_Detection
+# Coast Redwood Fog Detection
