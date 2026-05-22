@@ -1,6 +1,5 @@
 import argparse
 from io import BytesIO
-import os
 from pathlib import Path
 import random
 import requests
@@ -20,18 +19,34 @@ def main():
 
     args = parser.parse_args()
 
-    urls_received = get_image_urls(args.site_name, args.download_directory)
+    # Check that the given directory exists
+    save_to = args.download_directory
+    save_dir = Path(args.download_directory)
+    while not save_dir.exists():
+        save_to = input("Given filepath is invalid - please input a valid path to the download directory: ")
+        save_dir = Path(save_to)
 
+    # Check that number of photos provided is valid
+    num_photos = args.num_photos
+    while int(num_photos) <= 0:
+        num_photos = input("Number of photos to download must be positive - please input a valid number: ")
+
+    # Download urls for all site images
+    urls_received = get_image_urls(args.site_name, save_to)
+
+    # If successful, download a random selection of images from the given date range
     if urls_received:
-        chosen_images = download(args.site_name, args.start_date, args.end_date, args.download_directory, args.num_photos)
+        chosen_images = download(args.site_name, args.start_date, args.end_date, save_to, num_photos)
 
+        # If successful, allow user to classify images
         if chosen_images:
-            print("This is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
+            print("\n\nThis is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
             print_instructions()
 
-            classify(args.site_name, args.download_directory, chosen_images)
+            classify(args.site_name, save_to, chosen_images)
 
 def print_instructions():
+    """Prints instructions for rating images."""
     print("0 - Dark (Only for images in which nothing is visible)")
     print("1 - Clear Day")
     print("2 - Light Fog in Background, Clear in Midground and Foreground")
@@ -50,31 +65,36 @@ def get_image_urls(site_name, save_to):
     :type save_to: str
     """
 
-    # Check that the directory we are saving to exists
-    if type(save_to) is not Path:
-        save_dir = Path(save_to)
-    else:
-        save_dir = save_to
-    if not save_dir.is_dir():
-        os.mkdir(save_dir)
-
+    # Check to see if given site exists
+    site_url = f"https://phenocam.nau.edu/webcam/browse/{site_name}"
+    try: 
+        response = requests.get(site_url)
+    except:
+        print("ERROR: Given site cannot be accessed - site name may be incorrect.")
+        return False
+    if response.status_code == 404:
+        print("ERROR: Given site cannot be accessed - site name may be incorrect.")
+        return False
+    
+    # Designate .txt file to store urls
     output_filepath = Path(f"{save_to}/{site_name}_urls.txt")
     output_filename = f"{save_to}/{site_name}_urls.txt"
 
     # Check whether image urls have already been downloaded
     if not output_filepath.is_file():
         try: 
-            response = requests.get(f"https://phenocam.nau.edu/api/siteimagelist/{site_name}")
-            data = response.json()
-            with open(output_filename, "w+") as url_file:
-                for url in data["imagelist"]:
-                    print(url, file=url_file)
-            return True
-        except:
-            print("Error accessing given site - site name may be incorrect.")
+            list_response = requests.get(f"https://phenocam.nau.edu/api/siteimagelist/{site_name}")
+        except Exception as e:
+            print(f"ERROR: {e}\n")
             return False
-    else:
-        return True
+        
+        # Copy image urls into the .txt file
+        image_list = list_response.json()
+        with open(output_filename, "w+") as url_file:
+            for url in image_list["imagelist"]:
+                print(url, file=url_file)
+    
+    return True
 
 def download(site_name, start_date, end_date, save_to, n_photos):
     """Downloads photos taken in some time range at a given site.
@@ -95,43 +115,40 @@ def download(site_name, start_date, end_date, save_to, n_photos):
     
     urls_filename = f"{save_to}/{site_name}_urls.txt"
 
-    start_url = f"https://phenocam.nau.edu/webcam/browse/{site_name}/{start_date}"
-    end_url = f"https://phenocam.nau.edu/webcam/browse/{site_name}/{end_date}"
+    url_list = []
+    chosen_images = []
 
+    # Check if either date is incorrectly formatted
     start_date_split = start_date.split("/")
     end_date_split = end_date.split("/")
+    
+    if (len(start_date_split) != 3):
+        print("ERROR: Given start date is incorrectly formatted.")
+        return chosen_images
+    if (len(end_date_split) != 3):
+        print("ERROR: Given end date is incorrectly formatted.")
+        return chosen_images
 
     start_img_url = f"https://phenocam.nau.edu/data/archive/{site_name}/{start_date_split[0]}/{start_date_split[1]}/{site_name}_{start_date_split[0]}_{start_date_split[1]}_{start_date_split[2]}"
     end_img_url = f"https://phenocam.nau.edu/data/archive/{site_name}/{end_date_split[0]}/{end_date_split[1]}/{site_name}_{end_date_split[0]}_{end_date_split[1]}_{end_date_split[2]}"
 
-    url_list = []
-    chosen_images = []
-
-    # Check to make sure both dates are accessible within the site data
-    try:
-        resp1 = requests.get(start_url, timeout=10)
-    except:
-        print("Error accessing data - given start date is not accessible for this site.")
-
-    try:
-        resp2 = requests.get(end_url, timeout=10)
-    except:
-        print("Error accessing data - given end date is not accessible for this site.")
-
-    if resp1.ok and resp2.ok:
-        n_downloaded = 0
-        # Add all urls for images that fall between the given dates to a list
-        with open(urls_filename, "r") as urls_file:
-            for line in urls_file:
-                if start_img_url <= line.strip() <= end_img_url:
-                    url_list.append(line.strip())
+    n_downloaded = 0
+    
+    # Add all urls for images that fall between the given dates to a list
+    with open(urls_filename, "r") as urls_file:
+        for line in urls_file:
+            if start_img_url <= line.strip() <= end_img_url:
+                url_list.append(line.strip())
+    
+    # Check if the list is not empty
+    if (url_list):
         # Randomly choose a set of image urls from that list and download each corresponding image
         while n_downloaded < int(n_photos):
             image_url = random.choice(url_list)
             try:
                 image_response = requests.get(image_url, timeout=10)
             except Exception as e:
-                print(f"ERROR:{e}")
+                print(f"ERROR: {e}\n")
             if image_response.ok:
                 image_url_split = image_url.split("/")
                 output_fpath = Path(f"{save_to}/{image_url_split[-1]}")
@@ -143,8 +160,11 @@ def download(site_name, start_date, end_date, save_to, n_photos):
                         n_downloaded += 1
                         chosen_images.append(image_url_split[-1])
                     except Exception as e:
-                        print(f"ERROR:{e}")
-        return chosen_images
+                        print(f"ERROR: {e}\n")
+    else:
+        print("ERROR: No images are available for this site within the given date range.")
+        
+    return chosen_images
 
 def classify(site_name, save_to, chosen_images):
     """Allows user to classify images based on level of fogginess
@@ -153,8 +173,10 @@ def classify(site_name, save_to, chosen_images):
     :type site_name: str
     :param save_to: The filepath to the destinate directory for the image urls.
     :type save_to: str
+    :param chosen_images: A list of filenames for each downloaded image.
+    :type chosen_images: List(str)
     """
-    image_dir = Path(save_to)
+
     csv_filename = f"{save_to}/{site_name}_fogdata.csv"
 
     with open(csv_filename, "a") as csv_file:
@@ -162,11 +184,13 @@ def classify(site_name, save_to, chosen_images):
         for photo in chosen_images:
             image_location = f"{save_to}/{photo}"
             img = cv.imread(image_location)
+
             # Resize and move image so it can be displayed side by side with the terminal window
             resized_image = cv.resize(img, (648, 480))
             cv.imshow(photo, resized_image)
             cv.moveWindow(photo, 880, 310)
             cv.waitKey(1)
+
             # Collect user input for level of fogginess and record in .csv file
             user_input = input("Enter level of fogginess: ")
             while (user_input < "0" or user_input > "7"):
@@ -174,6 +198,7 @@ def classify(site_name, save_to, chosen_images):
             csv_file.write(f"{photo},{user_input}\n")
             cv.destroyAllWindows()
             cv.waitKey(1) 
+
             # Reprint instructions at intervals
             if (index % 40 == 0):
                 print_instructions()
