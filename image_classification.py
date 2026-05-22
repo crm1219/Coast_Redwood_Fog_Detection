@@ -22,13 +22,14 @@ def main():
 
     urls_received = get_image_urls(args.site_name, args.download_directory)
 
-    if (urls_received):
-        download(args.site_name, args.start_date, args.end_date, args.download_directory, args.num_photos)
+    if urls_received:
+        chosen_images = download(args.site_name, args.start_date, args.end_date, args.download_directory, args.num_photos)
 
-        print("This is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
-        print_instructions()
+        if chosen_images:
+            print("This is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
+            print_instructions()
 
-        classify(args.site_name, args.download_directory)
+            classify(args.site_name, args.download_directory, chosen_images)
 
 def print_instructions():
     print("0 - Dark (Only for images in which nothing is visible)")
@@ -104,6 +105,7 @@ def download(site_name, start_date, end_date, save_to, n_photos):
     end_img_url = f"https://phenocam.nau.edu/data/archive/{site_name}/{end_date_split[0]}/{end_date_split[1]}/{site_name}_{end_date_split[0]}_{end_date_split[1]}_{end_date_split[2]}"
 
     url_list = []
+    chosen_images = []
 
     # Check to make sure both dates are accessible within the site data
     try:
@@ -139,10 +141,12 @@ def download(site_name, start_date, end_date, save_to, n_photos):
                         img = Image.open(BytesIO(image_response.content))
                         img.save(output_fpath)
                         n_downloaded += 1
+                        chosen_images.append(image_url_split[-1])
                     except Exception as e:
                         print(f"ERROR:{e}")
+        return chosen_images
 
-def classify(site_name, save_to):
+def classify(site_name, save_to, chosen_images):
     """Allows user to classify images based on level of fogginess
 
     :param site_name: The name of the site to obtain images from.
@@ -154,27 +158,25 @@ def classify(site_name, save_to):
     csv_filename = f"{save_to}/{site_name}_fogdata.csv"
 
     with open(csv_filename, "a") as csv_file:
-        # Loop through files in the directory and check whether each is an image file
-        index = 0
-        for photo in image_dir.iterdir():
-            if photo.is_file():
-                extension = photo.name.split(".")[-1]
-                if (extension == "jpg"):
-                    image_location = f"{save_to}/{photo.name}"
-                    img = cv.imread(image_location)
-                    # Resize and move image so it can be displayed side by side with the terminal window
-                    resized_image = cv.resize(img, (648, 480))
-                    cv.imshow(photo.name, resized_image)
-                    cv.moveWindow(photo.name, 880, 310)
-                    cv.waitKey(1)
-                    # Collect user input for level of fogginess and record in .csv file
-                    user_input = input("Enter level of fogginess: ")
-                    while (user_input < "0" or user_input > "7"):
-                        user_input = input("Please enter a number between 0 and 7: ")
-                    csv_file.write(f"{photo.name},{user_input}\n")
-                    cv.destroyAllWindows()
-                    cv.waitKey(1) 
-                    if (index % 40 == 0):
-                        print_instructions()
+        index = 1
+        for photo in chosen_images:
+            image_location = f"{save_to}/{photo}"
+            img = cv.imread(image_location)
+            # Resize and move image so it can be displayed side by side with the terminal window
+            resized_image = cv.resize(img, (648, 480))
+            cv.imshow(photo, resized_image)
+            cv.moveWindow(photo, 880, 310)
+            cv.waitKey(1)
+            # Collect user input for level of fogginess and record in .csv file
+            user_input = input("Enter level of fogginess: ")
+            while (user_input < "0" or user_input > "7"):
+                user_input = input("Please enter a number between 0 and 7: ")
+            csv_file.write(f"{photo},{user_input}\n")
+            cv.destroyAllWindows()
+            cv.waitKey(1) 
+            # Reprint instructions at intervals
+            if (index % 40 == 0):
+                print_instructions()
+            index += 1
 
 main()
