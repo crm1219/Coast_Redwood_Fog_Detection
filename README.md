@@ -1,6 +1,6 @@
 # Fog Classification
 
-This program will download a selection of images from the PhenoCam network website so that they can be classified based on how much fog is present in each image.
+This program will download a selection of images from a given PhenoCam site, then allow you to classify each image based on how much fog is present. The results will be stored in a .csv file that contains a list of image names and ratings.
 
 ## Usage
 
