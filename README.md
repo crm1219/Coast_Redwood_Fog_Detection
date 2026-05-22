@@ -14,4 +14,4 @@ After the images have been downloaded, the program will open each photo in succe
 
 ## Documentation
 
-Please see the file "Fog Classification System.docx" for reference on how to classify images.
+Please see the file Classification.md in the documentation folder for reference on how to classify images.
