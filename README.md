@@ -7,9 +7,9 @@ This program will download a selection of images from a given PhenoCam site, the
 Requirements:
 * Python 3.10+
 * The following Python packages:
-      * requests
-      * opencv-python
-      * pillow
+    * requests
+    * opencv-python
+    * pillow
 
 To run this program, enter the following command into the console, with the proper values filled in for each argument:
 
