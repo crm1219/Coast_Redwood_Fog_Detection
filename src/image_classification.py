@@ -3,6 +3,7 @@ from io import BytesIO
 from pathlib import Path
 import random
 import requests
+import os
 
 from PIL import Image
 import cv2 as cv
@@ -154,10 +155,29 @@ def download(site_name, start_date, end_date, save_to, n_photos):
                 # Check to make sure the image hasn't already been downloaded - if so, it gets skipped
                 if not output_fpath.is_file():
                     try:
+                        photo = image_url_split[-1]
                         img = Image.open(BytesIO(image_response.content))
                         img.save(output_fpath)
-                        n_downloaded += 1
-                        chosen_images.append(image_url_split[-1])
+                        new_img = cv.imread(output_fpath)
+
+                        # Resize and move image so it can be displayed side by side with the terminal window
+                        resized_image = cv.resize(new_img, (648, 480))
+                        cv.imshow(photo, resized_image)
+                        cv.moveWindow(photo, 880, 310)
+                        cv.waitKey(1)
+
+                        # Determine whether the user wants to keep or discard the photo
+                        user_input = input("Enter 0 to discard and 1 to keep: ")
+                        while (user_input < "0" or user_input > "1"):
+                            user_input = input("Please enter a number between 0 and 1: ")
+                        cv.destroyAllWindows()
+                        cv.waitKey(1) 
+                        if user_input == "0":
+                            os.remove(output_fpath)
+                        elif user_input == "1":
+                            n_downloaded += 1
+                            chosen_images.append(image_url_split[-1])
+                            
                     except Exception as e:
                         print(f"ERROR: {e}\n")
     else:

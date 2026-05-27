@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 def main():
     category_list = ["too_dark", "no_fog", "fog"]
