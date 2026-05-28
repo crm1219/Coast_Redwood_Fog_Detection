@@ -4,6 +4,13 @@ This program will download a selection of images from a given PhenoCam site, the
 
 ## Usage
 
+Requirements:
+* Python 3.10+
+* The following Python packages:
+    * requests
+    * opencv-python
+    * pillow
+
 To run this program, enter the following command into the console, with the proper values filled in for each argument:
 
     python image_classification.py [site_name] [start_date] [end_date] [download_directory] [num_photos]
