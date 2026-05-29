@@ -1,7 +1,7 @@
 import argparse
 
 def main():
-    category_list = ["too_dark", "no_fog", "fog"]
+    category_list = ["dark", "clear", "light_fog", "heavy_fog"]
 
     parser = argparse.ArgumentParser()
 
@@ -16,7 +16,7 @@ def main():
     save_to_file = open(save_to, "w")
     save_to_file.write(f"# Site: {args.site_name}\n# Categories:\n")
 
-    for i in range(0, 8):
+    for i in range(len(category_list)):
         save_to_file.write(f"# {i}. {category_list[i]}\n")
 
     save_to_file.write("timestamp,label\n")
@@ -29,7 +29,16 @@ def main():
             timestamp = "-".join(timestamp_arr[1:4])
             hms = timestamp_arr[-1]
             timestamp += f" {hms[:2]}:{hms[2:4]}:{hms[4:]}"
-            save_to_file.write(f"{timestamp},{category_list[int(array[1])]}\n")
+            category = ""
+            if int(array[1]) == 0:
+                category = "dark"
+            elif int(array[1]) == 1:
+                category = "clear"
+            elif int(array[1]) >= 2 and int(array[1]) <= 3:
+                category = "light_fog"
+            else:
+                category = "heavy_fog"
+            save_to_file.write(f"{timestamp},{category}\n")
 
     save_to_file.close()
 

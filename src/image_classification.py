@@ -1,3 +1,5 @@
+# Allows the user to download a selection of random images, each of which they can evaluate to determine whether they want to keep or not, and classify each image
+
 import argparse
 from io import BytesIO
 from pathlib import Path
@@ -15,6 +17,7 @@ def main():
     parser.add_argument("start_date", help="The earliest date to draw images from - format as YYYY/MM/DD")
     parser.add_argument("end_date", help="The latest date to draw images from - format as YYYY/MM/DD")
     parser.add_argument("download_directory", help="The filepath to the directory which images and results are saved to")
+    parser.add_argument("--exclude_directory", default="", help="The filepath to a directory containing images to exclude.")
     parser.add_argument("num_photos", help="The total number of images to be downloaded")
 
     args = parser.parse_args()
@@ -26,6 +29,13 @@ def main():
         save_to = input("Given filepath is invalid - please input a valid path to the download directory: ")
         save_dir = Path(save_to)
 
+    exclude = args.exclude_directory
+    if exclude != "":
+        exclude_dir = Path(exclude)
+        while not exclude_dir.exists():
+            exclude = input("Given filepath is invalid - please input a valid path to the exclusion directory: ")
+            exclude_dir = Path(exclude)
+
     # Check that number of photos provided is valid
     num_photos = args.num_photos
     while int(num_photos) <= 0:
@@ -36,7 +46,7 @@ def main():
 
     # If successful, download a random selection of images from the given date range
     if urls_received:
-        chosen_images = download(args.site_name, args.start_date, args.end_date, save_to, num_photos)
+        chosen_images = download(args.site_name, args.start_date, args.end_date, save_to, exclude, num_photos)
 
         # If successful, allow user to classify images
         if chosen_images:
@@ -96,7 +106,7 @@ def get_image_urls(site_name, save_to):
     
     return True
 
-def download(site_name, start_date, end_date, save_to, n_photos):
+def download(site_name, start_date, end_date, save_to, exclude, n_photos):
     """Downloads photos taken in some time range at a given site.
 
     :param site_name: The name of the site to download from.
@@ -109,6 +119,8 @@ def download(site_name, start_date, end_date, save_to, n_photos):
         directory already exists, it is NOT cleared. New photos are added to
         the directory, except for duplicates, which are skipped.
     :type save_to: str
+    :param exclude: A directory already containing images from the given site, meant to be excluded so images are not duplicated.
+    :type exclude: str
     :param n_photos: The number of photos to download.
     :type n_photos: int
     """
@@ -152,8 +164,9 @@ def download(site_name, start_date, end_date, save_to, n_photos):
             if image_response.ok:
                 image_url_split = image_url.split("/")
                 output_fpath = Path(f"{save_to}/{image_url_split[-1]}")
+                exclude_fpath = Path(exclude)
                 # Check to make sure the image hasn't already been downloaded - if so, it gets skipped
-                if not output_fpath.is_file():
+                if not output_fpath.is_file() and not exclude_fpath.is_file():
                     try:
                         photo = image_url_split[-1]
                         img = Image.open(BytesIO(image_response.content))

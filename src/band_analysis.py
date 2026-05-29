@@ -10,14 +10,31 @@ def main():
     mask_img = Image.open(mask_path)
     roimask = np.asarray(mask_img, dtype=np.bool)
 
+    data_file = open("C:/Users/crmos/OneDrive/Documents/Phenocam_Images/santaluciapreserve1/santaluciapreserve1_fogdata.csv")
+    data = data_file.readlines()
+
+    index = 0
+    totals = [0, 0, 0, 0, 0, 0, 0, 0]
+    counts = [0, 0, 0, 0, 0, 0, 0, 0]
+    averages = [0, 0, 0, 0, 0, 0, 0, 0]
+
     for photo in image_dir.iterdir():
         if photo.is_file():
             if photo.name.split(".")[1] == "jpg":
                 im = Image.open(photo)
                 im.load()
                 output = get_roi_stats(im, roimask)
-                print(output, end=" ")
-                print(photo.name)
+                rating = int(data[index].split(",")[1])
+                totals[rating] += output
+                counts[rating] += 1
+                index += 1
+
+    for i in range(8):
+        if counts[i] != 0:
+            averages[i] = totals[i] / counts[i]
+        print(f"Average for rating {i}: {averages[i]}")
+
+    data_file.close()
 
 
 # The key is to identify an object (in my case it is a stand of Eucalyptus in the distance) and create an ROI for that specific location on the image. You can then use a band ratio to identify fog using the green band ratioed over the red band. Under normal circumstances a green tree will produce an elevated Red/Green ratio. However, when fog is present, the red and green bands equalize and the ratio is very different. I have found that approach to be highly effective for day time fog detection. In fact, several student projects from my Geography 175 class comparing fog detects from the fog collector to phenocam detections. However, it does require sunlight and the right scene features. Since the inquiry is about redwoods, I can imagine it should work reasonably well. One might also identify multiple candidate trees or stands and calculate an average to account for potential spatial variation in fog. It does not work for night time detection, but that can be done with a four-channel net radiometer.
