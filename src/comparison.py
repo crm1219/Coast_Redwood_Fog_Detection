@@ -3,8 +3,9 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("target_directory", help="The directory to create the new file in")
+    parser.add_argument("method", help="The method to evaluate")
     parser.add_argument("site_name", help="The PhenoCam site from which the data comes")
+    parser.add_argument("target_directory", help="The directory to create the new file in")
 
     args = parser.parse_args()
 

@@ -2,15 +2,24 @@ from PIL import Image
 import numpy as np
 import sys
 from pathlib import Path
+import argparse
 
 def main():
-    image_dir = Path("C:/Users/crmos/OneDrive/Documents/Phenocam_Images/santaluciapreserve1")
+    parser = argparse.ArgumentParser()
 
-    mask_path = Path("C:/Users/crmos/Downloads/santaluciapreserve1_EN_1000_01.tif")
+    parser.add_argument("target_directory", help="The directory in which the files are stored")
+    parser.add_argument("site_name", help="The PhenoCam site from which the data comes")
+    parser.add_argument("tif_file", help="The name of the .tif file serving as the roi mask")
+
+    args = parser.parse_args()
+
+    image_dir = Path(args.target_directory)
+
+    mask_path = Path(f"{args.target_directory}/{args.tif_file}")
     mask_img = Image.open(mask_path)
     roimask = np.asarray(mask_img, dtype=np.bool)
 
-    data_file = open("C:/Users/crmos/OneDrive/Documents/Phenocam_Images/santaluciapreserve1/santaluciapreserve1_fogdata.csv")
+    data_file = open(f"{args.target_directory}/{args.site_name}_fogdata.csv")
     data = data_file.readlines()
 
     index = 0
