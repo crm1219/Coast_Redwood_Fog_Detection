@@ -1,4 +1,4 @@
-# Allows the user to download a selection of random images, each of which they can evaluate to determine whether they want to keep or not, and classify each image
+# Allows the user to download a selection of random images, each of which they can evaluate to determine whether they want to keep or not, and classify each image, storing the rating, blur, and filename of each image in a .csv file
 
 import argparse
 from io import BytesIO
@@ -7,6 +7,7 @@ import random
 import requests
 import os
 
+import numpy as np
 from PIL import Image
 import cv2 as cv
 
@@ -53,10 +54,11 @@ def main():
             print("\n\nThis is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
             print_instructions()
 
-            classify(args.site_name, save_to, chosen_images)
+            classify(save_to, chosen_images)
 
 def print_instructions():
     """Prints instructions for rating images."""
+    
     print("0 - Dark (Only for images in which nothing is visible)")
     print("1 - Clear Day")
     print("2 - Light Fog in Background, Clear in Midground and Foreground")
@@ -65,6 +67,7 @@ def print_instructions():
     print("5 - Heavy Fog in Background and Midground, Clear in Foreground")
     print("6 - Heavy Fog in Background and Midground, Light Fog in Foreground")
     print("7 - Heavy Fog in Background, Midground, and Foreground")
+    print("8 - Smoke")
 
 def get_image_urls(site_name, save_to):
     """Saves urls for all phenocam images from a given site to a .txt file.
@@ -198,42 +201,63 @@ def download(site_name, start_date, end_date, save_to, exclude, n_photos):
         
     return chosen_images
 
-def classify(site_name, save_to, chosen_images):
+def classify(save_to, chosen_images):
     """Allows user to classify images based on level of fogginess
 
-    :param site_name: The name of the site to obtain images from.
-    :type site_name: str
     :param save_to: The filepath to the destinate directory for the image urls.
     :type save_to: str
     :param chosen_images: A list of filenames for each downloaded image.
     :type chosen_images: List(str)
     """
+    # Create or open file to store image data
+    image_data_file = open(f"{save_to}/Image_Data.csv", "a")
+    image_data_path = Path(f"{save_to}/Image_Data.csv")
+    if not image_data_path.is_file():
+        image_data_file.write("Filename,Focus Value,Rating\n")
 
-    csv_filename = f"{save_to}/{site_name}_fogdata.csv"
+    
+    index = 1
+    for photo in chosen_images:
+        image_location = f"{save_to}/{photo}"
+        img = cv.imread(image_location)
 
-    with open(csv_filename, "a") as csv_file:
-        index = 1
-        for photo in chosen_images:
-            image_location = f"{save_to}/{photo}"
-            img = cv.imread(image_location)
+        # Resize and move image so it can be displayed side by side with the terminal window
+        resized_image = cv.resize(img, (648, 480))
+        cv.imshow(photo, resized_image)
+        cv.moveWindow(photo, 880, 310)
+        cv.waitKey(1)
 
-            # Resize and move image so it can be displayed side by side with the terminal window
-            resized_image = cv.resize(img, (648, 480))
-            cv.imshow(photo, resized_image)
-            cv.moveWindow(photo, 880, 310)
-            cv.waitKey(1)
+        # Collect user input for level of fogginess and record in .csv file
+        user_input = input("Enter level of fogginess: ")
+        while (user_input < "0" or user_input > "8"):
+            user_input = input("Please enter a number between 0 and 8: ")
+        cv.destroyAllWindows()
+        cv.waitKey(1) 
 
-            # Collect user input for level of fogginess and record in .csv file
-            user_input = input("Enter level of fogginess: ")
-            while (user_input < "0" or user_input > "7"):
-                user_input = input("Please enter a number between 0 and 7: ")
-            csv_file.write(f"{photo},{user_input}\n")
-            cv.destroyAllWindows()
-            cv.waitKey(1) 
+        # Calculate and record amount of blur in the image
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        output = compute_blur_fft(gray)
+        image_data_file.write(f"{photo},{output},{user_input}\n")
 
-            # Reprint instructions at intervals
-            if (index % 40 == 0):
-                print_instructions()
-            index += 1
+        # Reprint instructions at intervals
+        if (index % 40 == 0):
+            print_instructions()
+        index += 1
+
+    image_data_file.close()
+
+def compute_blur_fft(gray):
+    """Computes the amount of blur in an image using a Fast Fourier transform.
+    
+    :param image_path: The filepath to the image to be used to compute blur.
+    :type image_path: str"""
+    (h, w) = gray.shape
+    (cX, cY) = w // 2, h // 2
+    fft_shift = np.fft.fftshift(np.fft.fft2(gray))
+    r = 40
+    fft_shift[cY - r:cY + r, cX - r:cX + r] = 0
+    recon = np.fft.ifft2(np.fft.ifftshift(fft_shift))
+    magnitude = 20 * np.log(np.abs(recon) + 1e-8)
+    return float(np.mean(magnitude))
 
 main()

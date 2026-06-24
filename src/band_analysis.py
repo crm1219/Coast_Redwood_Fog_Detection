@@ -27,21 +27,21 @@ def main():
     counts = [0, 0, 0, 0, 0, 0, 0, 0]
     averages = [0, 0, 0, 0, 0, 0, 0, 0]
 
-    for photo in image_dir.iterdir():
-        if photo.is_file():
-            if photo.name.split(".")[1] == "jpg":
-                im = Image.open(photo)
-                im.load()
-                output = get_roi_stats(im, roimask)
-                rating = int(data[index].split(",")[1])
-                totals[rating] += output
-                counts[rating] += 1
-                index += 1
+    with open(f"{image_dir}/{args.site_name}_fogdata.csv") as data_file:
+        for line in data_file:
+            data = line.split(",")
+            im_path = f"{image_dir}/{data[0]}"
+            im = Image.open(im_path)
+            im.load()
+            output = get_roi_stats(im, roimask)
+            rating = int(data[1])
+            totals[rating] += output
+            counts[rating] += 1
 
     for i in range(8):
         if counts[i] != 0:
             averages[i] = totals[i] / counts[i]
-        print(f"Average for rating {i}: {averages[i]}")
+        print(f"Average red score for rating {i}: {averages[i]}")
 
     data_file.close()
 
@@ -59,6 +59,7 @@ def get_roi_stats(im, roimask):
     # create numpy arrays with bands
     r_array = np.asarray(im_r, dtype=np.int16)
     g_array = np.asarray(im_g, dtype=np.int16)
+    b_array = np.asarray(im_b, dtype=np.int16)
 
     # try applying mask to red image ... if mask and image don't
     # have same size this will raise an exception.
@@ -71,6 +72,7 @@ def get_roi_stats(im, roimask):
 
     # make masked arrays for G,B
     g_ma = np.ma.array(g_array,mask=roimask)
+    b_ma = np.ma.array(b_array,mask=roimask)
 
     # find mean, std
     r_vals = r_ma.compressed()
@@ -78,8 +80,11 @@ def get_roi_stats(im, roimask):
 
     g_vals = g_ma.compressed()
     g_mean = g_vals.mean()
+
+    b_vals = b_ma.compressed()
+    b_mean = b_vals.mean()
     
-    return r_mean/g_mean
+    return (r_mean, g_mean, b_mean)
     
 
 main()
