@@ -59,11 +59,11 @@ def edge_sharpness(train_dir):
             upper_bound = 0
             if i == max_rating:
                 lower_bound = -100
-            else:
+            elif i < max_rating:
                 lower_bound = (data_values[i][0] + data_values[i + 1][1]) / 2
             if i == 0:
                 upper_bound = 100
-            else:
+            elif i <= max_rating:
                 upper_bound = (data_values[i][1] + data_values[i - 1][0]) / 2
             ranges.append([lower_bound, upper_bound])
 

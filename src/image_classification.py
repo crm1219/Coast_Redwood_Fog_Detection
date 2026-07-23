@@ -7,7 +7,6 @@ import random
 import requests
 import os
 
-import numpy as np
 from PIL import Image
 import cv2 as cv
 
@@ -15,11 +14,24 @@ def main():
     parser = argparse.ArgumentParser(description="Classify images from a coast redwood PhenoCam site based on fog quantity")
 
     parser.add_argument("site_name", help="The site to draw images from")
-    parser.add_argument("start_date", help="The earliest date to draw images from - format as YYYY/MM/DD")
-    parser.add_argument("end_date", help="The latest date to draw images from - format as YYYY/MM/DD")
     parser.add_argument("download_directory", help="The filepath to the directory which images and results are saved to")
+    parser.add_argument("--start_date", help="The earliest date to draw images from - format as YYYY/MM/DD")
+    parser.add_argument("--end_date", help="The latest date to draw images from - format as YYYY/MM/DD")
     parser.add_argument("--exclude_directory", default="", help="The filepath to a directory containing images to exclude.")
-    parser.add_argument("num_photos", help="The total number of images to be downloaded")
+    parser.add_argument("--num_photos", help="The total number of images to be downloaded")
+    parser.add_argument(
+        "--random",
+        action="store_true",
+        default=False,
+        help="",
+    )
+    parser.add_argument(
+        "--specific",
+        action="store_true",
+        default=False,
+        help="",
+    )
+    parser.add_argument("--image_url", help="The total number of images to be downloaded")
 
     args = parser.parse_args()
 
@@ -38,17 +50,21 @@ def main():
             exclude_dir = Path(exclude)
 
     # Check that number of photos provided is valid
-    num_photos = args.num_photos
-    while int(num_photos) <= 0:
-        num_photos = input("Number of photos to download must be positive - please input a valid number: ")
+    if args.random:
+        num_photos = args.num_photos
+        while int(num_photos) <= 0:
+            num_photos = input("Number of photos to download must be positive - please input a valid number: ")
 
     # Download urls for all site images
     urls_received = get_image_urls(args.site_name, save_to)
 
     # If successful, download a random selection of images from the given date range
     if urls_received:
-        chosen_images = download(args.site_name, args.start_date, args.end_date, save_to, exclude, num_photos)
-
+        chosen_images = []
+        if args.random:
+            chosen_images = download(args.site_name, args.start_date, args.end_date, save_to, exclude, num_photos)
+        elif args.specific:
+            chosen_images = download_image(args.image_url, save_to)
         # If successful, allow user to classify images
         if chosen_images:
             print("\n\nThis is a program to classify images based on the level of fog they contain. Please rate images according to the following ranking system: ")
@@ -201,6 +217,19 @@ def download(site_name, start_date, end_date, save_to, exclude, n_photos):
         
     return chosen_images
 
+def download_image(url, save_to):
+    photo_name = url.split("/")[-1]
+    chosen_image = []
+    chosen_image.append(photo_name)
+    output_fpath = f"{save_to}/{photo_name}"
+    try:
+        image_response = requests.get(url, timeout=10)
+    except:
+        print("Error")
+    img = Image.open(BytesIO(image_response.content))
+    img.save(output_fpath)
+    return chosen_image
+
 def classify(save_to, chosen_images):
     """Allows user to classify images based on level of fogginess
 
@@ -210,10 +239,10 @@ def classify(save_to, chosen_images):
     :type chosen_images: List(str)
     """
     # Create or open file to store image data
-    image_data_file = open(f"{save_to}/Image_Data.csv", "a")
-    image_data_path = Path(f"{save_to}/Image_Data.csv")
+    image_data_file = open(f"{save_to}/Image_Data1.csv", "a")
+    image_data_path = Path(f"{save_to}/Image_Data1.csv")
     if not image_data_path.is_file():
-        image_data_file.write("Filename,Focus Value,Rating\n")
+        image_data_file.write("Filename,Background Fog,Midground Fog,Foreground Fog,Total Fog Rating\n")
 
     
     index = 1
@@ -228,16 +257,30 @@ def classify(save_to, chosen_images):
         cv.waitKey(1)
 
         # Collect user input for level of fogginess and record in .csv file
-        user_input = input("Enter level of fogginess: ")
-        while (user_input < "0" or user_input > "8"):
-            user_input = input("Please enter a number between 0 and 8: ")
+        user_input1 = input("Enter level of background fogginess - 0 for clear, 1 for light, 2 for heavy, 7 for dark, and 8 for smoky: ")
+        while (user_input1 < "0" or (user_input1 > "2" and user_input1 < "7") or user_input1 > "8"):
+            user_input1 = input("Please enter either 0, 1, 2, 7, or 8: ")
+    
+        user_input2 = input("Enter level of midground fogginess - 0 for clear, 1 for light, 2 for heavy, 7 for dark, and 8 for smoky: ")
+        while (user_input2 < "0" or (user_input2 > "2" and user_input2 < "7") or user_input2 > "8"):
+            user_input2 = input("Please enter either 0, 1, 2, 7, or 8: ")
+        
+        user_input3 = input("Enter level of foreground fogginess - 0 for clear, 1 for light, 2 for heavy, 7 for dark, and 8 for smoky: ")
+        while (user_input3 < "0" or (user_input3 > "2" and user_input3 < "7") or user_input3 > "8"):
+            user_input3 = input("Please enter either 0, 1, 2, 7, or 8: ")
+        
+        total = 0
+        if user_input1 == "7":
+            total = 7
+        elif user_input2 == "8":
+            total = 8
+        else:
+            total = int(user_input1) + int(user_input2) + int(user_input3)
+
         cv.destroyAllWindows()
         cv.waitKey(1) 
 
-        # Calculate and record amount of blur in the image
-        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        output = compute_blur_fft(gray)
-        image_data_file.write(f"{photo},{output},{user_input}\n")
+        image_data_file.write(f"{photo},{int(user_input1)},{int(user_input2)},{int(user_input3)},{total},\n")
 
         # Reprint instructions at intervals
         if (index % 40 == 0):
@@ -245,19 +288,5 @@ def classify(save_to, chosen_images):
         index += 1
 
     image_data_file.close()
-
-def compute_blur_fft(gray):
-    """Computes the amount of blur in an image using a Fast Fourier transform.
-    
-    :param image_path: The filepath to the image to be used to compute blur.
-    :type image_path: str"""
-    (h, w) = gray.shape
-    (cX, cY) = w // 2, h // 2
-    fft_shift = np.fft.fftshift(np.fft.fft2(gray))
-    r = 40
-    fft_shift[cY - r:cY + r, cX - r:cX + r] = 0
-    recon = np.fft.ifft2(np.fft.ifftshift(fft_shift))
-    magnitude = 20 * np.log(np.abs(recon) + 1e-8)
-    return float(np.mean(magnitude))
 
 main()
